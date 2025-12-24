@@ -37,7 +37,6 @@
 #include <map>
 #include <memory>
 
-#define CPPHTTPLIB_OPENSSL_SUPPORT
 #include "nlohmann/json.hpp"
 #include "httplib.h"
 
@@ -178,7 +177,10 @@ inline httplib::Client* Session::setupClientOptions(Session* cli) {
         cli->client_ = std::make_unique<httplib::Client>(cli->http_ + "://" + cli->host_ + ":" + cli->post_);
         if (cli->http_ == "https") {
             if (cli->ignore_ssl_) {
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+                // 如果是HTTPS客户端，设置不验证证书
                 cli->client_->enable_server_certificate_verification(false);
+#endif
             }
         }
     }
