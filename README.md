@@ -47,186 +47,62 @@ The library should implement all requests on [OpenAI references](https://platfor
 
 ## Installation
 
-The library consists of two files: [include/openai/openai.hpp](https://github.com/olrea/openai-cpp/blob/main/include/openai/openai.hpp) and [include/openai/nlohmann/json.hpp](https://github.com/olrea/openai-cpp/blob/main/include/openai/nlohmann/json.hpp).  
-Just copy the [include/openaicpp](https://github.com/olrea/openai-cpp/tree/main/include/openai) folder in your project and you can use `#include "openai.hpp"` in your code. That is all.  
-
-> Note: **OpenAI-CPP** uses [Nlohmann Json](https://github.com/nlohmann/json) which is available in `include/json.hpp`. Feel free to use your own copy for faster compile time build. 
-
-## Usage
-
-### Simple showcase
-
-The library needs to be configured with your account's secret key which is available on the [website](https://platform.openai.com/account/api-keys). It is recommended to set your `OPENAI_API_KEY` environment variable before using the library (or you can also set the API key directly in the code):
-
-```bash
-export OPENAI_API_KEY='sk-...'
-```
-
-The following code is available at [examples/00-showcase.cpp](examples/00-showcase.cpp).
-
-```cpp
-#include "openai.hpp"
-#include <iostream>
-
-int main() {
-    openai::start(); // Will use the api key provided by `OPENAI_API_KEY` environment variable
-    // openai::start("your_API_key", "optional_organization"); // Or you can handle it yourself
-
-    auto completion = openai::completion().create(R"({
-        "model": "text-davinci-003",
-        "prompt": "Say this is a test",
-        "max_tokens": 7,
-        "temperature": 0
-    })"_json); // Using user-defined (raw) string literals
-    std::cout << "Response is:\n" << completion.dump(2) << '\n'; 
-
-    auto image = openai::image().create({
-        { "prompt", "A cute koala playing the violin"},
-        { "n", 1 },
-        { "size", "512x512" }
-    }); // Using initializer lists
-    std::cout << "Image URL is: " << image["data"][0]["url"] << '\n'; 
-}
-```
-
-The output received looks like:
-
-```bash
->> request: https://api.openai.com/v1/completions  {"max_tokens":7,"model":"text-davinci-003","prompt":"Say this is a test","temperature":0}
-Response is:
-{
-  "choices": [
-    {
-      "finish_reason": "length",
-      "index": 0,
-      "logprobs": null,
-      "text": "\n\nThis is indeed a test"
-    }
-  ],
-  "created": 1674121840,
-  "id": "cmpl-6aLr6jPhtxpLyu9rNsJFKDHU3SHpe",
-  "model": "text-davinci-003",
-  "object": "text_completion",
-  "usage": {
-    "completion_tokens": 7,
-    "prompt_tokens": 5,
-    "total_tokens": 12
-  }
-}
->> request: https://api.openai.com/v1/images/generations  {"n":1,"prompt":"A cute koala playing the violin","size":"512x512"}
-Image URL is: "https://oaidalleapiprodscus.blob.core.windows.net/private/org-WaIMDdGHNwJiXAmjegDHE6AM/user-bCrYDjR21ly46316ZbdgqvKf/img-sysAePXF2c8yu28AIoZLLmEG.png?st=2023-01-19T20%3A35%3A19Z&se=2023-01-19T22%3A35%3A19Z&sp=r&sv=2021-08-06&sr=b&rscd=inline&rsct=image/png&skoid=6aaadede-4fb3-4698-a8f6-684d7786b067&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2023-01-19T18%3A10%3A41Z&ske=2023-01-20T18%3A10%3A41Z&sks=b&skv=2021-08-06&sig=nWkcGTTCsWigHHocYP%2BsyiV5FJL6izpAe3OVvX1GLuI%3D"
-```
-
-![OpenAI-CPP attachments](doc/koala_violin.png?raw=true "OpenAI-CPP attachments")
-
-Since `Openai::Json` is a typedef to a [nlohmann::json](https://github.com/nlohmann/json), you get all the features provided by the latter one (conversions, STL like access, ...). 
-
-
-### Build the examples
-
-```bash
-mkdir build && cd build
-cmake .. && make
-examples/[whatever]
-```
-
-In your project, if you want to get verbose output like when running the examples, you can define `#define OPENAI_VERBOSE_OUTPUT`.
-
-### Advanced usage
-
-#### A word about error handling
-
-By default, **OpenAI-CPP** will throw a runtime error exception if the curl request does not succeed. You are free to handle these exceptions the way you like.
-You can prevent throw exceptions by setting `setThrowException(false)` (see example in [examples/09-instances.cpp](examples/09-instances.cpp)). If you do that, a warning will be displayed instead. 
-
-### More control
-
-You can use the `openai::post()` or `openai::get()` methods to fully control what you are sending (e.g. can be useful when a new method from OpenAI API is available and not provided by `OpenAI-CPP` yet).
-
-
-#### Manage OpenAI-CPP instance
-
-Here are two approaches to keep alive the **OpenAI-CPP** session in your program so you can use it anytime, anywhere.
-
-##### Use the default instance()
-
-This is the default behavior. **OpenAI-CPP** provides free convenient functions : `openai::start(const std::string& token)` and `openai::instance()`.
-Initialize and configure the **OpenAI-CPP** instance with:
-
-```cpp
-auto& openai = openai::start();
-```
-
-When you are in another scope and you have lost the `openai` reference, you can grab it again with :  
-
-```cpp
-auto& openai = openai::instance();
-```
-
-It might not be the recommended way but since we generally want to handle only one OpenAI instance (one token), this approach is highly convenient. 
-
-##### Pass by reference if you want to manage multiple secret keys
-
-An other approach is to pass the *OpenAI* instance by reference, store it, and call the appropriate methods when needed.
-
-```cpp
-void bar(openai::OpenAI& openai) {
-    openai.completion.create({
-        {"model", "text-davinci-003"},
-        {"prompt", "Say bar() function called"}
-    });
-}
-
-int main() {
-    openai::OpenAI openai_instance{"your_api_key"};
-    bar(openai_instance);
-}
-```
-
-You can use a [std::reference_wrapper](http://en.cppreference.com/w/cpp/utility/functional/reference_wrapper) as shown in [examples/09-instances.cpp](examples/09-instances.cpp). 
-
-This strategy is useful if you have to manage several OpenAI-CPP instances with different secret keys.
-
-## Troubleshooting
-
-### Libcurl with Windows
-
-> Note: If you are using [WSL](https://learn.microsoft.com/windows/wsl/) then you are not concerned by the following. 
-
-According to [Install Curl on Windows](https://everything.curl.dev/get/windows),
-> Windows 10 comes with the curl tool bundled with the operating system since version 1804
-
-However, you still might have difficulties handling libcurl where CMake throws `Could NOT find CURL (missing: CURL_LIBRARY CURL_INCLUDE_DIR)`.  
-You can try to follow one the 2 ways proposed by the the Curl [Install Curl on Windows](https://everything.curl.dev/get/windows).
-
-Another way to solve this is to grab the curl version for Windows [here](https://curl.se/windows/), copy the content of `include`
-in appropriate folders available visible in your PATH (e.g. if in your Git installation `[...]/Git/mingw64/include/`).
-You also need to grab the `curl.lib` and the `libcurl.dll` files from [here](https://dl.dropboxusercontent.com/s/jxwohqax4e2avyt/libcurl-7.48.0-WinSSL-zlib-x86-x64.zip?dl=0) and copy them in appropriate folders (e.g. if in your Git installation `[...]/Git/mingw64/lib/`).
-
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_GENERATOR_PLATFORM=x64
-cmake --build .
-cmake --build . --target 00-showcase # For a specific target
-```
-
-Or if you prefer using GNU GCC on Windows
-
-```bash
-cmake -G "MSYS Makefiles" -D CMAKE_CXX_COMPILER=g++ ..
-make
-```
-
+The library consists of three files: 
+https://github.com/xhqm-xyz/openai-cpp
+https://github.com/yhirose/cpp-httplib
+https://github.com/nlohmann/json
 
 ## License
 
 [MIT](LICENSE.md)
 
 
-## Acknowledgment
 
-This work has been mainly inspired by [slacking](https://github.com/coin-au-carre/slacking) and the curl wrapper code from [cpr](https://github.com/libcpr/cpr).
+基于httplib的版本优势：
 
-## Sponsor
+1. 代码简洁性和现代性
+• 使用C++11/14现代特性，代码更简洁
+• 智能指针管理资源，减少内存泄漏风险
+• 更符合现代C++编程风格
 
-[OLREA](https://www.olrea.fr/)
+2. 依赖管理
+• 只需单个头文件依赖，更容易集成
+• 无需预编译库，构建更简单
+• 跨平台兼容性更好
+
+4. 错误处理
+• 异常安全性更好
+• 更清晰的错误信息传递
+• 统一的HTTP状态码处理
+
+4. 性能
+• 更轻量级的实现
+• 减少系统调用开销
+• 更好的连接复用
+
+
+基于libcurl的版本优势：
+
+1. 成熟度和稳定性
+• libcurl是经过长期验证的稳定库
+• 支持更多HTTP协议特性
+• 更好的SSL/TLS支持
+
+2. 功能完整性
+• 支持更多高级HTTP特性
+• 更好的代理支持
+• 更完善的multipart/form-data处理
+
+3. 平台兼容性
+• 在旧系统上兼容性更好
+• 对Windows平台支持更成熟
+• 更好的SSL证书处理
+
+4. 调试和监控
+• 更详细的错误信息
+• 更好的调试支持
+• 更成熟的性能优化
+
+
+
+
