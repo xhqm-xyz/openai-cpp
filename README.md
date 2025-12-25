@@ -57,6 +57,7 @@ https://github.com/nlohmann/json
 [MIT](LICENSE.md)
 
 
+## 对比
 
 基于httplib的版本优势：
 
@@ -68,12 +69,10 @@ https://github.com/nlohmann/json
 2. 依赖管理
 • 只需单个头文件依赖，更容易集成
 • 无需预编译库，构建更简单
-• 跨平台兼容性更好
 
-4. 错误处理
+3. 错误处理
 • 异常安全性更好
 • 更清晰的错误信息传递
-• 统一的HTTP状态码处理
 
 4. 性能
 • 更轻量级的实现
